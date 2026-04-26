@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nanas Calendar</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 32px 16px;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 28px;
+            width: 100%;
+            max-width: 560px;
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .nav button {
+            background: none;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #475569;
+            transition: background 0.15s;
+        }
+
+        .nav button:hover { background: #f1f5f9; }
+
+        .nav h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .cell {
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px;
+            font-size: 0.95rem;
+            color: #334155;
+            background: #f1f5f9;
+            position: relative;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .cell:hover { opacity: 0.8; }
+
+        .cell.on {
+            background: #dcfce7;
+            color: #15803d;
+            font-weight: 600;
+        }
+
+        .cell.off {
+            background: #fee2e2;
+            color: #b91c1c;
+            font-weight: 600;
+        }
+
+        .cell-main {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .cell-date {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .cell .indicator {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            color: #64748b;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .legend-dot.on { background: #dcfce7; border: 1px solid #86efac; }
+        .legend-dot.off { background: #fee2e2; border: 1px solid #fca5a5; }
+        .legend-dot.unset { background: #f1f5f9; border: 1px solid #e2e8f0; }
+
+        .add-btn {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 28px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: background 0.2s;
+        }
+
+        .add-btn:hover { background: #4f46e5; }
+
+        .this-week-banner {
+            margin-bottom: 20px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 600;
+            max-width: 560px;
+            width: 100%;
+        }
+
+        .this-week-banner.yes { background: #dcfce7; color: #15803d; }
+        .this-week-banner.no  { background: #fee2e2; color: #b91c1c; }
+        .this-week-banner.unknown { background: #f1f5f9; color: #64748b; }
+    </style>
+</head>
+<body>
+    <h1>Nanas Calendar</h1>
+    <div class="this-week-banner unknown" id="banner">Checking this week...</div>
+    <div class="card">
+        <div class="nav">
+            <button id="prev">&#8249;</button>
+            <h2 id="month-title"></h2>
+            <button id="next">&#8250;</button>
+        </div>
+        <div class="grid" id="grid"></div>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot on"></div>Nanas on</div>
+            <div class="legend-item"><div class="legend-dot off"></div>Nanas off</div>
+            <div class="legend-item"><div class="legend-dot unset"></div>Not set</div>
+        </div>
+    </div>
+    <a class="add-btn" href="/schedule.html">+ Schedule a Sunday</a>
+
+    <script>
+        const today = new Date();
+        let scheduleMap = {};
+
+        function fmt(d) {
+            return d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+        }
+
+        function nextSunday(from) {
+            const d = new Date(from);
+            d.setHours(0, 0, 0, 0);
+            const day = d.getDay();
+            const diff = day === 0 ? 0 : 7 - day;
+            d.setDate(d.getDate() + diff);
+            return d;
+        }
+
+        async function init() {
+            try {
+                const [schedRes, weekRes] = await Promise.all([
+                    fetch('/nanas/schedule'),
+                    fetch('/nanas')
+                ]);
+                const entries = await schedRes.json();
+                entries.forEach(e => scheduleMap[e.date] = e.on);
+
+                const weekText = await weekRes.text();
+                const banner = document.getElementById('banner');
+                if (weekText === 'Yes') {
+                    banner.textContent = 'Nanas IS on this week ✓';
+                    banner.className = 'this-week-banner yes';
+                } else {
+                    banner.textContent = 'Nanas is NOT on this week';
+                    banner.className = 'this-week-banner no';
+                }
+            } catch (e) {
+                document.getElementById('banner').textContent = 'Could not connect to server';
+            }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const firstSunday = nextSunday(today);
+            const lastSunday = new Date(firstSunday);
+            lastSunday.setDate(lastSunday.getDate() + 35);
+            document.getElementById('month-title').textContent =
+                firstSunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
+                ' - ' +
+                lastSunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 6; i++) {
+                const date = new Date(firstSunday);
+                date.setDate(firstSunday.getDate() + (i * 7));
+                const dateStr = fmt(date);
+
+                const cell = document.createElement('div');
+                let cls = 'cell';
+                if (dateStr in scheduleMap) cls += scheduleMap[dateStr] ? ' on' : ' off';
+                cell.className = cls;
+                cell.onclick = () => window.location.href = '/schedule.html?date=' + dateStr;
+
+                const main = document.createElement('div');
+                main.className = 'cell-main';
+
+                const title = document.createElement('span');
+                title.className = 'cell-date';
+                title.textContent = date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+                main.appendChild(title);
+
+                const subtitle = document.createElement('span');
+                subtitle.textContent = date.getFullYear();
+                main.appendChild(subtitle);
+
+                cell.appendChild(main);
+
+                const ind = document.createElement('span');
+                ind.className = 'indicator';
+                ind.textContent = dateStr in scheduleMap ? (scheduleMap[dateStr] ? 'ON' : 'OFF') : 'NOT SET';
+                cell.appendChild(ind);
+
+                grid.appendChild(cell);
+            }
+        }
+
+        document.getElementById('prev').style.display = 'none';
+        document.getElementById('next').style.display = 'none';
+
+        init();
+    </script>
+</body>
+</html>

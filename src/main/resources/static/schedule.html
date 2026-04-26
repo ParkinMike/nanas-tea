@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Nanas</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 40px 48px;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .field { margin-bottom: 28px; }
+
+        label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+
+        input[type="date"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #1e293b;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="date"]:focus { border-color: #6366f1; }
+
+        .toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .toggle input[type="radio"] { display: none; }
+
+        .toggle label {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #64748b;
+            transition: all 0.15s;
+        }
+
+        .toggle input[value="true"]:checked + label {
+            background: #dcfce7;
+            border-color: #86efac;
+            color: #15803d;
+        }
+
+        .toggle input[value="false"]:checked + label {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #b91c1c;
+        }
+
+        .toggle label:hover { background: #f8fafc; }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 4px;
+        }
+
+        button[type="submit"]:hover { background: #4f46e5; }
+        button[type="submit"]:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        .message {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .message.success { background: #dcfce7; color: #15803d; display: block; }
+        .message.error   { background: #fee2e2; color: #b91c1c; display: block; }
+
+        .back {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #6366f1;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back:hover { text-decoration: underline; }
+
+        .hint {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 4px;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Schedule Nanas</h1>
+
+        <form id="form">
+            <div class="field">
+                <label>Sunday Date <span class="hint">(only Sundays are selectable)</span></label>
+                <input type="date" id="date" required>
+            </div>
+
+            <div class="field">
+                <label>Is Nanas On?</label>
+                <div class="toggle">
+                    <input type="radio" name="on" id="yes" value="true" required>
+                    <label for="yes">Yes ✓</label>
+                    <input type="radio" name="on" id="no" value="false">
+                    <label for="no">No ✗</label>
+                </div>
+            </div>
+
+            <button type="submit" id="submit-btn">Save</button>
+            <div class="message" id="message"></div>
+        </form>
+    </div>
+    <a class="back" href="/">← Back to calendar</a>
+
+    <script>
+        let scheduleMap = {};
+
+        function getCookie(name) {
+            return document.cookie
+                .split('; ')
+                .find(row => row.startsWith(name + '='))
+                ?.split('=')[1];
+        }
+
+        function fmt(d) {
+            return d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+        }
+
+        function nextSunday(from) {
+            const d = new Date(from);
+            const day = d.getDay();
+            const diff = day === 0 ? 0 : 7 - day;
+            d.setDate(d.getDate() + diff);
+            return d;
+        }
+
+        function prevSunday(from) {
+            const d = new Date(from);
+            const day = d.getDay();
+            d.setDate(d.getDate() - (day === 0 ? 0 : day));
+            return d;
+        }
+
+        function applyScheduleToForm(dateStr) {
+            if (dateStr in scheduleMap) {
+                const val = scheduleMap[dateStr];
+                document.getElementById('yes').checked = val === true;
+                document.getElementById('no').checked = val === false;
+            } else {
+                document.getElementById('yes').checked = false;
+                document.getElementById('no').checked = false;
+            }
+        }
+
+        const dateInput = document.getElementById('date');
+
+        const minSunday = prevSunday(new Date());
+        minSunday.setDate(minSunday.getDate() - 28);
+
+        dateInput.min = fmt(minSunday);
+
+        dateInput.addEventListener('change', () => {
+            const d = new Date(dateInput.value + 'T00:00:00');
+            if (d.getDay() !== 0) {
+                dateInput.value = fmt(nextSunday(d));
+            }
+            applyScheduleToForm(dateInput.value);
+        });
+
+        async function init() {
+            try {
+                const res = await fetch('/nanas/schedule');
+                const entries = await res.json();
+                entries.forEach(e => scheduleMap[e.date] = e.on);
+            } catch { /* schedule stays empty, form just clears */ }
+
+            const params = new URLSearchParams(window.location.search);
+            const paramDate = params.get('date');
+            dateInput.value = paramDate ?? fmt(nextSunday(new Date()));
+            applyScheduleToForm(dateInput.value);
+        }
+
+        document.getElementById('form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            const msg = document.getElementById('message');
+            msg.className = 'message';
+
+            const dateVal = dateInput.value;
+            const onVal = document.querySelector('input[name="on"]:checked')?.value;
+
+            if (!dateVal || onVal === undefined) {
+                msg.textContent = 'Please fill in all fields.';
+                msg.className = 'message error';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const res = await fetch('/nanas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': decodeURIComponent(getCookie('XSRF-TOKEN') ?? '')
+                    },
+                    body: JSON.stringify({ date: dateVal, on: onVal === 'true' })
+                });
+
+                if (res.ok) {
+                    msg.textContent = 'Saved! Nanas is scheduled for ' + new Date(dateVal + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                    msg.className = 'message success';
+
+                    scheduleMap[dateVal] = onVal === 'true';
+
+                    const saved = new Date(dateVal + 'T00:00:00');
+                    saved.setDate(saved.getDate() + 7);
+                    const nextDate = fmt(saved);
+                    dateInput.value = nextDate;
+                    applyScheduleToForm(nextDate);
+                } else {
+                    const err = await res.text();
+                    msg.textContent = 'Error: ' + err;
+                    msg.className = 'message error';
+                }
+            } catch {
+                msg.textContent = 'Could not connect to server.';
+                msg.className = 'message error';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Save';
+        });
+
+        init();
+    </script>
+</body>
+</html>
