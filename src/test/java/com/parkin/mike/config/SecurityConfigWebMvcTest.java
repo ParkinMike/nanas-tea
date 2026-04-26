@@ -10,11 +10,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
@@ -68,6 +70,29 @@ class SecurityConfigWebMvcTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"date\":\"2026-04-26\",\"on\":true}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void sharedPasscodeAllowsConcurrentSessions() throws Exception {
+        when(nanasService.isNanasOnThisWeek()).thenReturn(true);
+
+        MockHttpSession firstSession = (MockHttpSession) mockMvc.perform(formLogin().user("nanas").password("averysecurepass"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn()
+                .getRequest()
+                .getSession(false);
+
+        MockHttpSession secondSession = (MockHttpSession) mockMvc.perform(formLogin().user("nanas").password("averysecurepass"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn()
+                .getRequest()
+                .getSession(false);
+
+        mockMvc.perform(get("/nanas").session(firstSession))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/nanas").session(secondSession))
                 .andExpect(status().isOk());
     }
 }

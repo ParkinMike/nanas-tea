@@ -46,7 +46,6 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
-                .maximumSessions(1)
             )
             .headers(headers -> headers
                 .contentSecurityPolicy(csp -> csp
